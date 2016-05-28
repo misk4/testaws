@@ -1,10 +1,7 @@
 var express = require('express');
 var router = express.Router();
-
-var mysql = require('mysql');
 var multer = require('multer');
-var path = require('path');
-var fs = require('fs');
+var mysql = require('mysql');
 
 var connection = mysql.createConnection({
     host : 'user.host',
@@ -13,23 +10,18 @@ var connection = mysql.createConnection({
     database: 'user_lib'
 });
 
-var _storage = multer.diskStorage({
-    destination: function(req,file,cb){
-        cb(null,'./uploads/');
+var s3 = require('multer-storage-s3');
+var storage = s3({
+    destination : function(req,file,cb){
+        cb(null,'file/');
     },
-    filename: function(req,file,cb){
-        cb(null,Date.now() +"." + file.orginalname.split('.').pop());
-    }
-    
+    filename : function(req,file,cb){
+        cb(null,Date.now() +"." + file.originalname.split('.').pop());
+    },
+    bucket : 'minsoo'
+    region : 'ap-northeast-2'
 });
-var upload= multer({storage : _storage});
-
-
-/* GET home page. */
-router.get('/', function(req, res, next) {
-  res.render('fileup', { title: 'Express' });
-});
-
+var upload = multer({ storage : storage});
 
 router.get("/", function(req, res){
     res.render('fileup', function(errror,content){
@@ -42,47 +34,25 @@ router.get("/", function(req, res){
     });
 });
 
-
 router.post('/upload', upload.single('userPhoto'), function(req,res){
-    var filename = req.file.filename;
-    var path = req.file.path;
+    var file_filename = req.file.filename;
+    var file_path = req.file.s3.Location;
     console.log(path);
     
-    connection.query('insert into file (filename, path) values  (?,?);',[filename,path],
+    connection.query('insert into file (filename, path) values  (?,?);',[file_filename,file_path],
                      function(error,info){
         if(error != undefined){
             res.sendStatus(503);
         }else{
-            res.redirect('/'+ info.insertId);
+            res.send('file was Uploaded Succesfully');
         }
     });
        console.log(filename);
 });
 
-router.get('/:file_id', function(req,res,next){
-    connection.query('select * from file where id = ?;',[req.params.file_id], function(error, cursor){
-        if(error != undefined){
-            res.sendStatus(503);
-        }else{
-            if(cursor.length == undefined || cursor.length <1)
-                res.sendStatus(404);
-            else
-                res.json(cursor[0]);
-        }
-    });
-});
-
-router.get('/uploads/:file_name', function(req,res,next){
-    connection.query('select * from file where filename = ?;',[req.params.file_name], function(error, cursor){
-        if(error != undefined){
-            res.sendStatus(503);
-        }else{
-            if(cursor.length == undefined || cursor.length <1)
-                res.sendStatus(404);
-            else
-                res.json(cursor[0]);
-        }
-    });
+/* GET home page. */
+router.get('/', function(req, res, next) {
+  res.render('index', { title: 'Express' });
 });
 
 module.exports = router;
